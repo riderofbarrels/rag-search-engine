@@ -3,6 +3,9 @@ import json
 import string
 from tokenize import String
 
+from keyword_prep import prep_keywords, remove_stopwords
+from nltk.stem import PorterStemmer
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -12,11 +15,12 @@ def main() -> None:
     search_parser.add_argument("query", type=str, help="Search query")
 
     args = parser.parse_args()
+    stemmer = PorterStemmer()
 
     match args.command:
         case "search":
             movie_hits = []
-            punct_map = str.maketrans("", "", string.punctuation)
+            search_tokens = remove_stopwords(prep_keywords(args.query))
 
             print(f"Searching for: {args.query}")
             with open("data/movies.json", "r") as f:
@@ -24,10 +28,14 @@ def main() -> None:
             for movie in movie_db["movies"]:
                 # print(movie)
                 # print(f"query is {args.query} and movie is {movie['title']}")
-                if args.query.lower().translate(punct_map) in movie[
-                    "title"
-                ].lower().translate(punct_map):
-                    movie_hits.append(movie["title"])
+                title_tokens = remove_stopwords(prep_keywords(movie["title"]))
+
+                for item in search_tokens:
+                    matches = [t for t in title_tokens if stemmer.stem(item) in t]
+                    if matches:
+                        movie_hits.append(movie["title"])
+                        break
+
             for i in range(0, len(movie_hits)):
                 if i >= 5:
                     break
