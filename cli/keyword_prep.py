@@ -1,8 +1,6 @@
 import string
 from tracemalloc import stop
 
-from nltk.stem import PorterStemmer
-
 
 def prep_keywords(keywords):
     punct_map = str.maketrans("", "", string.punctuation)
