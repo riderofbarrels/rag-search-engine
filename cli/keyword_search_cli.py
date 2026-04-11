@@ -2,6 +2,7 @@ import argparse
 import json
 import string
 from tokenize import String
+from inverted_index import InvertedIndex
 
 from keyword_prep import prep_keywords, remove_stopwords
 from nltk.stem import PorterStemmer
@@ -13,6 +14,9 @@ def main() -> None:
 
     search_parser = subparsers.add_parser("search", help="Search movies using BM25")
     search_parser.add_argument("query", type=str, help="Search query")
+
+    build_parser = subparsers.add_parser("build", help="Buid an inverted index of Movies")
+
 
     args = parser.parse_args()
     stemmer = PorterStemmer()
@@ -40,8 +44,19 @@ def main() -> None:
                 if i >= 5:
                     break
                 print(f"{i + 1}. {movie_hits[i]}")
+        case "build":
+            with open("data/movies.json", "r") as f:
+                movie_db = json.load(f)
+            ii = InvertedIndex()
+            ii.build(movie_db)
+            ii.save()
+
+            docs = ii.get_documents("merida")
+            print(docs[0])
         case _:
             parser.print_help()
+
+
 
 
 if __name__ == "__main__":
