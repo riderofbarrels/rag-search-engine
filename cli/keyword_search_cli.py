@@ -1,6 +1,7 @@
 import argparse
 import json
 
+
 from inverted_index import InvertedIndex
 from keyword_prep import prep_keywords, remove_stopwords
 from nltk.stem import PorterStemmer
@@ -16,6 +17,10 @@ def main() -> None:
     build_parser = subparsers.add_parser(
         "build", help="Buid an inverted index of Movies"
     )
+
+    tf_parser = subparsers.add_parser("tf", help="Get the number of times a term appears in a movie entry")
+    tf_parser.add_argument("doc_id", type=int, help="ID of document to query")
+    tf_parser.add_argument("search_term", type=str, help="The term to search for")
 
     args = parser.parse_args()
     stemmer = PorterStemmer()
@@ -83,6 +88,18 @@ def main() -> None:
 
             # docs = ii.get_documents("merida")
             # print(docs[0])
+        case "tf":
+            ii = InvertedIndex()
+            try:
+                ii.load()
+            except:
+                raise Exception("Failed to load index and docmap")
+
+            search_term = remove_stopwords(prep_keywords(args.search_term))
+            doc_id = args.doc_id
+
+            print(ii.get_tf(doc_id, search_term))
+
         case _:
             parser.print_help()
 
