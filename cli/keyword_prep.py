@@ -1,5 +1,4 @@
 import string
-from tracemalloc import stop
 
 
 def prep_keywords(keywords):
