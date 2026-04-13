@@ -1,9 +1,12 @@
 import pickle
+from collections import Counter
+from math import log
 from pathlib import Path
 
 from keyword_prep import prep_keywords, remove_stopwords
 from nltk.stem import PorterStemmer
-from collections import Counter
+
+BM25_K1 = 1.5  # the constant which controls the saturation effect in the BM25 saturation formula
 
 
 class InvertedIndex:
@@ -27,7 +30,6 @@ class InvertedIndex:
                 self.term_frequencies[doc_id][stemmed_token] = 0
             self.term_frequencies[doc_id][stemmed_token] += 1
 
-
     def get_documents(self, term):
         # doc_id_list = []
 
@@ -35,15 +37,25 @@ class InvertedIndex:
 
     def get_tf(self, doc_id, term):
         stemmer = PorterStemmer()
-        #print(f"term is {term}")
+        # print(f"term is {term}")
         if len(term) > 1:
-            raise Exception ("Term Frequencies Lookup Failed due to More than One Search Term")
+            raise Exception(
+                "Term Frequencies Lookup Failed due to More than One Search Term"
+            )
         else:
             term = stemmer.stem(term[0])
-            #print(self.term_frequencies[doc_id])
+            # print(self.term_frequencies[doc_id])
             count = self.term_frequencies[doc_id][term]
             return count
 
+    def get_bm25_idf(self, term: str) -> float:
+        stemmer = PorterStemmer()
+
+        num_docs = len(self.docmap)
+        num_docs_w_term = len(self.index[term])
+        bm25_idf = log((num_docs - num_docs_w_term + 0.5) / (num_docs_w_term + 0.5) + 1)
+
+        return bm25_idf
 
     def build(self, movie_dict):
         for m in movie_dict["movies"]:
@@ -51,6 +63,12 @@ class InvertedIndex:
             self.docmap[movie_id] = m
             self.__add_document(movie_id, f"{m['title']} {m['description']}")
             # self.get_documents(term)
+            #
+
+    def get_bm25_tf(self, doc_id, term, k1=BM25_K1):
+        raw_tf = self.get_tf(doc_id, term)
+        bm25_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1)
+        return bm25_tf
 
     def save(self):
         cache_dir = Path("cache")
