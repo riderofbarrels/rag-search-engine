@@ -1,6 +1,6 @@
 import argparse
 import json
-
+import math
 
 from inverted_index import InvertedIndex
 from keyword_prep import prep_keywords, remove_stopwords
@@ -21,6 +21,13 @@ def main() -> None:
     tf_parser = subparsers.add_parser("tf", help="Get the number of times a term appears in a movie entry")
     tf_parser.add_argument("doc_id", type=int, help="ID of document to query")
     tf_parser.add_argument("search_term", type=str, help="The term to search for")
+
+    idf_parser = subparsers.add_parser("idf", help="Get the inverse frequency of the search term")
+    idf_parser.add_argument("search_term", type=str, help="The term to find the IDF of")
+
+    tfidf_parser = subparsers.add_parser("tfidf", help="Gets the Term Frequency Inverse Document Frequency")
+    tfidf_parser.add_argument("doc_id", type=int, help="ID of document to query")
+    tfidf_parser.add_argument("search_term", type=str, help="The term to find the TF-IDF of")
 
     args = parser.parse_args()
     stemmer = PorterStemmer()
@@ -61,24 +68,6 @@ def main() -> None:
             for hit in doc_hits:
                 print(f"{hit['id']}: {hit['title']}")
 
-        #            with open("data/movies.json", "r") as f:
-        #                movie_db = json.load(f)
-        #            for movie in movie_db["movies"]:
-        #                # print(movie)
-        #                # print(f"query is {args.query} and movie is {movie['title']}")
-        #                title_tokens = remove_stopwords(prep_keywords(movie["title"]))
-
-        #               for item in search_tokens:
-        #                    matches = [t for t in title_tokens if stemmer.stem(item) in t]
-        #                    if matches:
-        #                        movie_hits.append(movie["title"])
-        #                        break
-
-        #            for i in range(0, len(movie_hits)):
-        #                if i >= 5:
-        #                    break
-        #                print(f"{i + 1}. {movie_hits[i]}")
-
         case "build":
             with open("data/movies.json", "r") as f:
                 movie_db = json.load(f)
@@ -86,8 +75,6 @@ def main() -> None:
             ii.build(movie_db)
             ii.save()
 
-            # docs = ii.get_documents("merida")
-            # print(docs[0])
         case "tf":
             ii = InvertedIndex()
             try:
@@ -99,6 +86,50 @@ def main() -> None:
             doc_id = args.doc_id
 
             print(ii.get_tf(doc_id, search_term))
+        case "idf":
+            # loads the index, docmap, and freqency objects
+            ii = InvertedIndex()
+            try:
+                ii.load()
+            except:
+                raise Exception("Failed to load index and docmap")
+
+            #clean the search term
+            search_term = remove_stopwords(prep_keywords(args.search_term))
+            search_term = stemmer.stem(search_term[0])
+
+            #get the count by checking the length of matched doc_ids in the index, the count # of docs in docmap, then calculate IDF
+            docs_with_term_count = len(ii.index[search_term])
+            total_doc_count = len(ii.docmap)
+            idf = math.log((total_doc_count + 1) / (docs_with_term_count +  1))
+
+            print(f"{idf: .2f}")
+
+        case "tfidf":
+            # loads the index, docmap, and freqency objects
+            ii = InvertedIndex()
+            try:
+                ii.load()
+            except:
+                raise Exception("Failed to load index and docmap")
+
+            #clean the search term and store the doc_id to search against
+            search_term = remove_stopwords(prep_keywords(args.search_term))
+            stemmer.stem(search_term[0])
+            doc_id = args.doc_id
+
+            #get the term frequency and inverse document frequency
+            tf = ii.get_tf(doc_id, search_term)
+            docs_with_term_count = len(ii.index[stemmer.stem(search_term[0])])
+            total_doc_count = len(ii.docmap)
+            idf = math.log((total_doc_count + 1) / (docs_with_term_count +  1))
+
+            #Get the tf-IDF
+            tfidf = tf * idf
+            print(f"TF-IDF score of '{args.search_term}' in document '{args.doc_id}': {tfidf:.2f}")
+
+
+
 
         case _:
             parser.print_help()
