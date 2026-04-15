@@ -2,7 +2,7 @@ import argparse
 import json
 import math
 
-from inverted_index import BM25_K1, InvertedIndex
+from inverted_index import BM25_B, BM25_K1, InvertedIndex
 from keyword_prep import prep_keywords, remove_stopwords
 from nltk.stem import PorterStemmer
 
@@ -51,6 +51,9 @@ def main() -> None:
     bm25_tf_parser.add_argument("term", type=str, help="Term to get BM25 TF score for")
     bm25_tf_parser.add_argument(
         "k1", type=float, nargs="?", default=BM25_K1, help="Tunable BM25 K1 parameter"
+    )
+    bm25_tf_parser.add_argument(
+        "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
     )
 
     args = parser.parse_args()

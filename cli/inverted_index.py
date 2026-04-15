@@ -2,11 +2,13 @@ import pickle
 from collections import Counter
 from math import log
 from pathlib import Path
+from statistics import mean
 
 from keyword_prep import prep_keywords, remove_stopwords
 from nltk.stem import PorterStemmer
 
 BM25_K1 = 1.5  # the constant which controls the saturation effect in the BM25 saturation formula
+BM25_B = 0.75
 
 
 class InvertedIndex:
@@ -14,11 +16,20 @@ class InvertedIndex:
         self.index = {}
         self.docmap = {}
         self.term_frequencies = {}
+        self.doc_lengths = {}
 
     def __add_document(self, doc_id, text):
         stemmer = PorterStemmer()
+        # prep/tokenize text, but do not remove stopwords
+        tokenized_text = prep_keywords(text)
 
-        tokenized_text = remove_stopwords(prep_keywords(text))
+        # Count the token after cleanup and store in the doc_lengths dict
+        token_count = len(tokenized_text)
+        self.doc_lengths.update({doc_id: token_count})
+
+        # remove stopwords from tokens
+        tokenized_text = remove_stopwords(tokenized_text)
+
         for token in tokenized_text:
             stemmed_token = stemmer.stem(token)
             if stemmed_token not in self.index:
@@ -29,6 +40,11 @@ class InvertedIndex:
                 self.term_frequencies[doc_id] = Counter()
                 self.term_frequencies[doc_id][stemmed_token] = 0
             self.term_frequencies[doc_id][stemmed_token] += 1
+
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) == 0:
+            return 0
+        return mean(self.doc_lengths.values())
 
     def get_documents(self, term):
         # doc_id_list = []
@@ -65,10 +81,18 @@ class InvertedIndex:
             # self.get_documents(term)
             #
 
-    def get_bm25_tf(self, doc_id, term, k1=BM25_K1):
+    def get_bm25_tf(self, doc_id, term, k1=BM25_K1, b=BM25_B):
         raw_tf = self.get_tf(doc_id, term)
-        bm25_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1)
+        length_norm = (
+            1 - b + b * (self.doc_lengths[doc_id] / self.__get_avg_doc_length())
+        )
+        bm25_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1 * length_norm)
         return bm25_tf
+
+    def bm25(self, doc_id, term):
+        bm25_tf = self.get_bm25_tf(doc_id, term)
+        bm25_idf = self.get_bm25_idf(term)
+        return bm25_tf * bm25_idf
 
     def save(self):
         cache_dir = Path("cache")
@@ -88,12 +112,19 @@ class InvertedIndex:
         with open(file_path, "wb") as f:
             pickle.dump(self.term_frequencies, f)
 
+        file_path = cache_dir / "doc_lengths.pkl"
+
+        with open(file_path, "wb") as f:
+            pickle.dump(self.doc_lengths, f)
+        print(self.doc_lengths)
+
     def load(self):
         try:
             cache_dir = Path("cache")
             index_file_path = cache_dir / "index.pkl"
             docmap_file_path = cache_dir / "docmap.pkl"
             freq_file_path = cache_dir / "term_frequencies.pkl"
+            lengths_file_path = cache_dir / "doc_lengths.pkl"
 
             with open(index_file_path, "rb") as f:
                 self.index = pickle.load(f)
@@ -103,6 +134,9 @@ class InvertedIndex:
 
             with open(freq_file_path, "rb") as f:
                 self.term_frequencies = pickle.load(f)
+
+            with open(lengths_file_path, "rb") as f:
+                self.doc_lengths = pickle.load(f)
 
         except:
             raise Exception("Unable to load index files")
