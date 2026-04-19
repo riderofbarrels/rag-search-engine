@@ -56,6 +56,11 @@ def main() -> None:
         "b", type=float, nargs="?", default=BM25_B, help="Tunable BM25 b parameter"
     )
 
+    bm25search_parser = subparsers.add_parser(
+        "bm25search", help="Search movies using full BM25 scoring"
+    )
+    bm25search_parser.add_argument("query", type=str, help="Search query")
+
     args = parser.parse_args()
     stemmer = PorterStemmer()
 
@@ -110,6 +115,7 @@ def main() -> None:
                 raise Exception("Failed to load index and docmap")
 
             search_term = remove_stopwords(prep_keywords(args.search_term))
+            search_term = stemmer.stem(search_term)
             doc_id = args.doc_id
 
             print(ii.get_tf(doc_id, search_term))
@@ -123,7 +129,7 @@ def main() -> None:
 
             # clean the search term
             search_term = remove_stopwords(prep_keywords(args.search_term))
-            search_term = stemmer.stem(search_term[0])
+            search_term = stemmer.stem(search_term)
 
             # get the count by checking the length of matched doc_ids in the index, the count # of docs in docmap, then calculate IDF
             docs_with_term_count = len(ii.index[search_term])
@@ -142,7 +148,7 @@ def main() -> None:
 
             # clean the search term and store the doc_id to search against
             search_term = remove_stopwords(prep_keywords(args.search_term))
-            stemmer.stem(search_term[0])
+            search_term = stemmer.stem(search_term[0])
             doc_id = args.doc_id
 
             # get the term frequency and inverse document frequency
@@ -166,7 +172,7 @@ def main() -> None:
 
             # clean the search term and store the doc_id to search against
             search_term = remove_stopwords(prep_keywords(args.term))
-            search_term = stemmer.stem(search_term[0])
+            search_term = stemmer.stem(search_term)
             print(search_term)
             bm25idf = ii.get_bm25_idf(search_term)
 
@@ -186,7 +192,18 @@ def main() -> None:
             print(
                 f"BM25 TF score of '{args.term}' in document '{args.doc_id}': {bm25tf:.2f}"
             )
+        case "bm25search":
+            ii = InvertedIndex()
+            try:
+                ii.load()
+            except:
+                raise Exception("Failed to load index and docmap")
 
+            bm25_search_result = ii.bm25_search(args.query)
+
+            for i in range(0, 5):
+                # print(f"{i+1} ({bm25_search_result.["doc_id"]}) {bm25_search_result.["title"] - bm25_search_result["bm25_score"]")
+                print(bm25_search_result)
         case _:
             parser.print_help()
 

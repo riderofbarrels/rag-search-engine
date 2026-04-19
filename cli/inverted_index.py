@@ -9,6 +9,7 @@ from nltk.stem import PorterStemmer
 
 BM25_K1 = 1.5  # the constant which controls the saturation effect in the BM25 saturation formula
 BM25_B = 0.75
+LIMIT = 5
 
 
 class InvertedIndex:
@@ -54,21 +55,21 @@ class InvertedIndex:
     def get_tf(self, doc_id, term):
         stemmer = PorterStemmer()
         # print(f"term is {term}")
-        if len(term) > 1:
-            raise Exception(
-                "Term Frequencies Lookup Failed due to More than One Search Term"
-            )
-        else:
-            term = stemmer.stem(term[0])
-            # print(self.term_frequencies[doc_id])
-            count = self.term_frequencies[doc_id][term]
-            return count
+        # if len(term) > 1:
+        #    raise Exception(
+        #        "Term Frequencies Lookup Failed due to More than One Search Term"
+        #    )
+        # else:
+        #    term = stemmer.stem(term[0])
+        # print(self.term_frequencies[doc_id])
+        count = self.term_frequencies[doc_id][term]
+        return count
 
     def get_bm25_idf(self, term: str) -> float:
         stemmer = PorterStemmer()
-
+        # print(f"getting bm25 for {stemmer.stem(term)}")
         num_docs = len(self.docmap)
-        num_docs_w_term = len(self.index[term])
+        num_docs_w_term = len(self.index[stemmer.stem(term)])
         bm25_idf = log((num_docs - num_docs_w_term + 0.5) / (num_docs_w_term + 0.5) + 1)
 
         return bm25_idf
@@ -93,6 +94,21 @@ class InvertedIndex:
         bm25_tf = self.get_bm25_tf(doc_id, term)
         bm25_idf = self.get_bm25_idf(term)
         return bm25_tf * bm25_idf
+
+    def bm25_search(self, query, limit=LIMIT):
+        score_dict = {}
+        tokenized_query = remove_stopwords(prep_keywords(query))
+
+        for doc_id in self.docmap.keys():
+            score_dict[doc_id] = 0
+            for term in tokenized_query:
+                term_bm25 = self.bm25(doc_id, term)
+                score_dict[doc_id] += term_bm25
+
+            # sort by descending score
+            # retun the top LIMIT items
+
+        return score_dict
 
     def save(self):
         cache_dir = Path("cache")
